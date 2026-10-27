@@ -1,0 +1,322 @@
+{# app/templates/org/task_form.html #}
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+
+{# --- РЕЖИМЫ/ЗАГОЛОВКИ С АВТОДЕТЕКТОМ --- #}
+{# Если edit_mode не пришёл, попробуем угадать по form_action или по заполненности title_value #}
+{% set _edit =
+    (edit_mode is defined and edit_mode)
+    or (form_action is defined and '/edit' in form_action)
+    or (title_value is defined and title_value)
+%}
+{% set _form_action = form_action|default('/org/tasks/new') %}
+{% set _form_title  = form_title|default(_edit and 'Редактировать задачу' or 'Новая задача') %}
+
+{% block title %}{{ _form_title }} — {{ org.short_name }}{% endblock %}
+
+{% block content %}
+  {{ ui.breadcrumbs([('Организация', '/org'), ('Задачи', '/org/tasks'), (_form_title, None)]) }}
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2 align-items-center">
+      {{ ui.back_button(back_url|default('/org/tasks')) }}
+      <h3 class="mb-0">
+        <i class="bi {{ _edit and 'bi-pencil-square' or 'bi-plus-circle' }}"></i>
+        {{ _form_title }}
+      </h3>
+    </div>
+
+    {# маленький бейдж для визуальной проверки режима #}
+    <span class="badge bg-{{ _edit and 'warning text-dark' or 'secondary' }}">
+      {{ _edit and 'EDIT MODE' or 'NEW MODE' }}
+    </span>
+  </div>
+
+  <form method="post" action="{{ _form_action }}" class="row g-3" autocomplete="off">
+    {# --- Клиент (автодополнение) --- #}
+    <div class="col-12">
+      <label for="company_search" class="form-label">Клиент (компания)</label>
+
+      <input type="hidden" name="company_id" id="company_id" value="{{ selected_company_id or 0 }}">
+
+      <div style="position: relative;">
+        <input
+          type="text"
+          id="company_search"
+          class="form-control"
+          placeholder="Начните вводить ИНН, название или e-mail"
+          value="{{ selected_company_label or '' }}"
+          autocomplete="off"
+        >
+        <div id="company_results"
+             class="list-group"
+             style="position: absolute; top: 100%; left: 0; right: 0; z-index: 1050; max-height: 240px; overflow-y: auto; display:none;"></div>
+      </div>
+      <div class="form-text">Минимум 2 символа. Стрелки ↑/↓, Enter — выбрать. Esc — закрыть.</div>
+    </div>
+    {# --- /Клиент --- #}
+
+    {# --- Основное --- #}
+    <div class="col-12">
+      <label class="form-label required">Название</label>
+      <input class="form-control" name="title" required value="{{ title_value|default('') }}" />
+    </div>
+
+    <div class="col-12">
+      <label class="form-label">Описание</label>
+      <textarea class="form-control" name="description" rows="4">{{ description_value|default('') }}</textarea>
+    </div>
+
+    {# --- Срок и приоритет --- #}
+    <div class="col-12"><hr></div>
+    <h6 class="mb-0">Срок и приоритет</h6>
+
+    <div class="col-md-4">
+      <label class="form-label">Срок (дата)</label>
+      <input class="form-control" type="date" name="due_at" value="{{ due_date_value|default('') }}">
+    </div>
+
+    <div class="col-md-4">
+      <label class="form-label d-block">Режим приоритета</label>
+      {% set _pmode = priority_mode_value|default('AUTO') %}
+      <div class="form-check">
+        <input class="form-check-input" type="radio" name="priority_mode" id="pm_auto" value="AUTO" {{ 'checked' if _pmode == 'AUTO' }}>
+        <label class="form-check-label" for="pm_auto">Авто</label>
+      </div>
+      <div class="form-check">
+        <input class="form-check-input" type="radio" name="priority_mode" id="pm_manual" value="MANUAL" {{ 'checked' if _pmode == 'MANUAL' }}>
+        <label class="form-check-label" for="pm_manual">Вручную</label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <label class="form-label">Приоритет (если вручную)</label>
+      {% set _p = priority_value|default('MEDIUM') %}
+      <select class="form-select" name="priority">
+        <option value="URGENT"  {{ 'selected' if _p == 'URGENT'  }}>Срочно</option>
+        <option value="MEDIUM"  {{ 'selected' if _p == 'MEDIUM'  }}>Средний</option>
+        <option value="LONGTERM"{{ 'selected' if _p == 'LONGTERM'}}>Долгосрочный</option>
+      </select>
+    </div>
+
+    {# --- Повторение --- #}
+    <div class="col-12"><hr></div>
+    <h6 class="mb-0">Повторение</h6>
+
+    <div class="col-md-4">
+      {% set _freq = recur_freq_value|default('NONE') %}
+      <label class="form-label">Частота</label>
+      <select class="form-select" name="recur_freq">
+        <option value="NONE"    {{ 'selected' if _freq == 'NONE'    }}>Не повторять</option>
+        <option value="DAILY"   {{ 'selected' if _freq == 'DAILY'   }}>Ежедневно</option>
+        <option value="WEEKLY"  {{ 'selected' if _freq == 'WEEKLY'  }}>Еженедельно</option>
+        <option value="MONTHLY" {{ 'selected' if _freq == 'MONTHLY' }}>Ежемесячно</option>
+        <option value="QUARTERLY" {{ 'selected' if recur_freq_value == 'QUARTERLY' else '' }}>Ежеквартально</option>
+        <option value="YEARLY" {{ 'selected' if recur_freq_value == 'YEARLY' else '' }}>Ежегодно</option>
+      </select>
+    </div>
+
+    <div class="col-md-2">
+      <label class="form-label">Каждые</label>
+      <input class="form-control" type="number" name="recur_interval" min="1" value="{{ recur_interval_value|default(1) }}">
+    </div>
+
+    <div class="col-md-4">
+      <label class="form-label">Повторять до (необязательно)</label>
+      <input class="form-control" type="date" name="recur_until" value="{{ recur_until_value|default('') }}">
+    </div>
+
+    {# --- Назначение --- #}
+    <div class="col-12"><hr></div>
+    <h6 class="mb-0">Назначение</h6>
+
+    {% set _assign = assign_type_value|default('department') %}
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="radio" name="assign_type" id="at_dept" value="department" {{ 'checked' if _assign == 'department' }}>
+        <label class="form-check-label" for="at_dept">Подразделение</label>
+      </div>
+      <select class="form-select mt-2" name="department_id" id="department_id">
+        {% for d in departments or depts %}
+          <option value="{{ d.id }}" {{ 'selected' if selected_department_id is defined and selected_department_id == d.id }}>{{ d.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="radio" name="assign_type" id="at_user" value="user" {{ 'checked' if _assign == 'user' }}>
+        <label class="form-check-label" for="at_user">Пользователь</label>
+      </div>
+      <select class="form-select mt-2" name="assignee_id" id="assignee_id">
+        {% for u in users or assignees %}
+          <option value="{{ u.id }}" {{ 'selected' if selected_assignee_id is defined and selected_assignee_id == u.id }}>
+            {{ u.full_name or u.email }}{% if u.email %} ({{ u.email }}){% endif %}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="radio" name="assign_type" id="at_none" value="none" {{ 'checked' if _assign == 'none' }}>
+        <label class="form-check-label" for="at_none">Без назначения</label>
+      </div>
+      <div class="form-text">Задача будет без исполнителя и подразделения (если доступно по ролям).</div>
+    </div>
+
+    <div class="col-12 d-flex gap-2">
+      <button class="btn btn-primary" type="submit">
+        <i class="bi bi-check2-circle"></i> {{ _edit and 'Сохранить изменения' or 'Создать' }}
+      </button>
+      <a class="btn btn-outline-secondary" href="{{ back_url|default('/org/tasks') }}">
+        <i class="bi bi-arrow-left"></i> Назад
+      </a>
+    </div>
+  </form>
+
+  {# --- UI скрипты --- #}
+  <script>
+    // Включение/выключение селекта приоритета
+    (function() {
+      const pmAuto   = document.getElementById('pm_auto');
+      const pmManual = document.getElementById('pm_manual');
+      const prSelect = document.querySelector('select[name="priority"]');
+      function syncPriorityMode() {
+        if (prSelect) prSelect.disabled = !!(pmAuto && pmAuto.checked);
+      }
+      [pmAuto, pmManual].forEach(el => el && el.addEventListener('change', syncPriorityMode));
+      syncPriorityMode();
+    })();
+
+    // Переключение назначения: отдел / пользователь / none
+    (function() {
+      const atDept  = document.getElementById('at_dept');
+      const atUser  = document.getElementById('at_user');
+      const atNone  = document.getElementById('at_none');
+      const selDept = document.getElementById('department_id');
+      const selUser = document.getElementById('assignee_id');
+
+      function currentAssign() {
+        if (atDept && atDept.checked) return 'department';
+        if (atUser && atUser.checked) return 'user';
+        return 'none';
+      }
+      function syncAssign() {
+        const v = currentAssign();
+        if (selDept) selDept.disabled = (v !== 'department');
+        if (selUser) selUser.disabled = (v !== 'user');
+      }
+      [atDept, atUser, atNone].forEach(el => el && el.addEventListener('change', syncAssign));
+      syncAssign();
+    })();
+  </script>
+
+  <script>
+  // Автокомплит по компаниям
+  (function() {
+    const apiUrl = "/org/api/companies/search";
+    const orgId = {{ org.id }};
+    const input = document.getElementById("company_search");
+    const hidden = document.getElementById("company_id");
+    const list = document.getElementById("company_results");
+    const deptSelect = document.getElementById("department_id");
+
+    let timer = null;
+    let lastQueryId = 0;
+    let activeIndex = -1;
+
+    function hideList() {
+      list.style.display = "none";
+      list.innerHTML = "";
+      activeIndex = -1;
+    }
+
+    function showList(items) {
+      if (!items || !items.length) { hideList(); return; }
+      list.innerHTML = items.map((it) => `
+        <button type="button"
+                class="list-group-item list-group-item-action"
+                data-id="${it.id}"
+                data-label="${(it.label || '').replace(/"/g,'&quot;')}"
+                style="cursor:pointer">
+          <div class="d-flex justify-content-between">
+            <span>${it.label || ''}</span>
+            ${it.email ? `<small class="text-muted">${it.email}</small>` : ''}
+          </div>
+        </button>
+      `).join("");
+      list.style.display = "block";
+      activeIndex = -1;
+    }
+
+    function setActive(indexDelta) {
+      const buttons = Array.from(list.querySelectorAll(".list-group-item"));
+      if (!buttons.length) return;
+      if (activeIndex >= 0) buttons[activeIndex].classList.remove("active");
+      activeIndex = (activeIndex + indexDelta + buttons.length) % buttons.length;
+      buttons[activeIndex].classList.add("active");
+      buttons[activeIndex].scrollIntoView({ block: "nearest" });
+    }
+
+    function pick(el) {
+      const id = el.getAttribute("data-id");
+      const label = el.getAttribute("data-label") || "";
+      hidden.value = id || "0";
+      input.value = label;
+      hideList();
+    }
+
+    list.addEventListener("click", (e) => {
+      const btn = e.target.closest(".list-group-item");
+      if (!btn) return;
+      pick(btn);
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!list.contains(e.target) && e.target !== input) hideList();
+    });
+
+    input.addEventListener("keydown", (e) => {
+      if (list.style.display !== "block") return;
+      if (e.key === "ArrowDown") { e.preventDefault(); setActive(+1); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); setActive(-1); }
+      else if (e.key === "Enter") {
+        e.preventDefault();
+        const buttons = Array.from(list.querySelectorAll(".list-group-item"));
+        if (activeIndex >= 0 && buttons[activeIndex]) pick(buttons[activeIndex]);
+      } else if (e.key === "Escape") {
+        hideList();
+      }
+    });
+
+    input.addEventListener("input", () => {
+      const term = input.value.trim();
+      hidden.value = "0";
+      if (timer) clearTimeout(timer);
+      if (term.length < 2) { hideList(); return; }
+
+      timer = setTimeout(async () => {
+        const qid = ++lastQueryId;
+        const url = new URL(apiUrl, window.location.origin);
+        url.searchParams.set("term", term);
+        url.searchParams.set("org_id", String(orgId));
+        url.searchParams.set("limit", "20");
+        if (deptSelect && deptSelect.value) {
+          url.searchParams.set("dept_id", String(deptSelect.value));
+        }
+
+        try {
+          const res = await fetch(url.toString(), { credentials: "same-origin" });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          if (qid !== lastQueryId) return;
+          showList(Array.isArray(data) ? data : []);
+        } catch (_) {
+          hideList();
+        }
+      }, 300);
+    });
+  })();
+  </script>
+{% endblock %}

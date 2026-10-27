@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}Задачи — Календарь{% endblock %}
+{% block head_extra %}
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" rel="stylesheet">
+  <style>
+    .calendar-wrap { max-width: min(1900px, 96vw); margin: 0 auto; }
+
+    /* курсоры */
+    .fc .fc-daygrid-event { cursor: pointer; }
+    .fc .fc-daygrid-day { cursor: default; }
+
+    /* компактные события-чипы + БОЛЬШЕ ПРОМЕЖУТОК */
+    .fc .fc-daygrid-event {
+      padding: 3px 6px;
+      border: 1px solid #e9ecef;
+      border-radius: 5px;
+      margin: 6px 0;              /* ↑ было 2px — стало 6px */
+      background: #fff;
+    }
+    /* убираем блочные плитки */
+    .fc .fc-daygrid-block-event { border: none; }
+
+/* только название, до 3 строк, с переносами */
+.fc .fc-event-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;      /* можно поставить 4, если хочется побольше */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+
+  white-space: normal;         /* разрешаем перенос по пробелам */
+  word-break: break-word;      /* ломаем очень длинные "сцепленные" слова */
+  hyphens: auto;               /* переносы по слогам (если <html lang="ru">) */
+
+  text-overflow: ellipsis;
+  line-height: 1.2;
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+    /* селект недели */
+    .filter-select { width: auto; min-width: 160px; }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/org">Организация</a></li>
+      <li class="breadcrumb-item"><a href="/org/tasks">Задачи</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Календарь</li>
+    </ol>
+  </nav>
+
+<div class="btn-group" role="group" aria-label="Переключение представлений">
+  <a href="/org/tasks/list" class="btn btn-outline-primary">
+    <i class="bi bi-list-task"></i> Список
+  </a>
+  <a href="/org/tasks" class="btn btn-primary">
+    <i class="bi bi-calendar3-week"></i> Календарь
+  </a>
+</div>
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div class="btn-group">
+    <!-- слева оставим пустую группу, чтобы вёрстка совпадала по структуре -->
+  </div>
+  <a class="btn btn-primary" href="/org/tasks/new">
+    <i class="bi bi-plus-lg"></i> Новая задача
+  </a>
+</div>
+  <div class="card">
+    <div class="card-body">
+      <div id="calendar" class="calendar-wrap"></div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block body_extra %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js" defer></script>
+<script defer>
+document.addEventListener('DOMContentLoaded', function () {
+  const el = document.getElementById('calendar');
+
+  function formatWeekRange(view) {
+    const locale = 'ru-RU';
+    const start = view.currentStart;
+    const end = new Date(view.currentEnd.getTime() - 1); // воскресенье
+    const dd1 = start.getDate();
+    const dd2 = end.getDate();
+    const mon = end.toLocaleString(locale, { month: 'short' });
+    const yyyy = end.getFullYear();
+    return `${dd1}–${dd2} ${mon} ${yyyy}`;
+  }
+
+  // Кастомный тулбар (без фильтров «мои/не мои», только неделя)
+  const toolbar = document.createElement('div');
+  toolbar.className = 'd-flex flex-wrap align-items-center gap-2 mb-3';
+  toolbar.innerHTML = `
+    <div class="btn-group">
+      <button type="button" class="btn btn-outline-secondary" id="wk-prev" title="Предыдущая неделя">‹</button>
+      <button type="button" class="btn btn-outline-secondary" id="wk-today">Сегодня</button>
+      <button type="button" class="btn btn-outline-secondary" id="wk-next" title="Следующая неделя">›</button>
+    </div>
+
+    <div class="flex-grow-1 text-center fw-semibold" id="wk-title"></div>
+
+    <select class="form-select form-select-sm filter-select" id="week-select" title="Выбор недели"></select>
+  `;
+  el.parentElement.insertBefore(toolbar, el);
+
+  // Список ближайших недель (текущая ±8)
+  const weekSel = document.getElementById('week-select');
+  const now = new Date();
+  const baseMonday = new Date(now);
+  baseMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7)); // понедельник
+  for (let i = -4; i <= 8; i++) {
+    const d1 = new Date(baseMonday);
+    d1.setDate(d1.getDate() + i * 7);
+    const d2 = new Date(d1);
+    d2.setDate(d2.getDate() + 6);
+    const txt = `${d1.getDate()}–${d2.getDate()} ${d2.toLocaleString('ru-RU', { month: 'short' })}`;
+    const val = d1.toISOString().slice(0, 10);
+    const opt = new Option(txt, val);
+    if (i === 0) opt.selected = true;
+    weekSel.add(opt);
+  }
+
+  // Всегда показываем задачи ПОДРАЗДЕЛЕНИЙ (only=dept)
+  const currentFilter = 'all';
+
+  const calendar = new FullCalendar.Calendar(el, {
+    initialView: 'dayGridWeek',
+    firstDay: 1,
+    locale: 'ru',
+    height: 'auto',
+    headerToolbar: { left: '', center: '', right: '' },
+    weekNumbers: true,
+    navLinks: true,
+    eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+
+    // Контент события: только заголовок
+    eventContent: function(arg) {
+      const title = document.createElement('div');
+      title.className = 'fc-event-title';
+      title.textContent = arg.event.title || '';
+      return { domNodes: [title] };
+    },
+
+    // Загрузка событий
+    events: async (info, success, failure) => {
+      try {
+        const params = new URLSearchParams({
+          start: info.startStr,
+          end: info.endStr,
+          only: currentFilter, // dept
+        });
+        const resp = await fetch(`/org/tasks/api?${params.toString()}`, { credentials: 'include' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        const safe = (data || []).map(ev => {
+          const copy = { ...ev };
+          delete copy.url;
+          return copy;
+        });
+        success(safe);
+      } catch (e) {
+        console.error(e);
+        failure(e);
+      }
+    },
+
+    eventClick: (info) => {
+      const id = info?.event?.id;
+      if (id) {
+        window.location.href = `/org/tasks/${id}`;
+        info.jsEvent.preventDefault();
+      }
+    },
+
+    datesSet: (arg) => {
+      const titleEl = document.getElementById('wk-title');
+      if (titleEl) titleEl.textContent = formatWeekRange(arg.view);
+    },
+  });
+
+  calendar.render();
+
+  // Навигация
+  document.getElementById('wk-prev').addEventListener('click', () => calendar.prev());
+  document.getElementById('wk-next').addEventListener('click', () => calendar.next());
+  document.getElementById('wk-today').addEventListener('click', () => calendar.today());
+
+  // Выбор недели
+  weekSel.addEventListener('change', (e) => {
+    const start = new Date(e.target.value);
+    calendar.gotoDate(start);
+  });
+});
+</script>
+{% endblock %}

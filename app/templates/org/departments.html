@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}Подразделения — {{ org.short_name }}{% endblock %}
+{% block content %}
+  {{ ui.breadcrumbs([('Организация', '/org'), ('Подразделения', None)]) }}
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2">
+      {{ ui.back_button(back_url) }}
+      <h3 class="mb-0"><i class="bi bi-diagram-3"></i> Подразделения</h3>
+    </div>
+    <form class="d-flex gap-2" method="post" action="/org/departments/new" autocomplete="off">
+      <input class="form-control" type="text" name="name" placeholder="Новое подразделение" required />
+      <button class="btn btn-primary" type="submit"><i class="bi bi-plus-circle"></i> Добавить</button>
+    </form>
+  </div>
+
+  {% if flash_success %}<div class="alert alert-success">{{ flash_success }}</div>{% endif %}
+  {% if flash_error %}<div class="alert alert-danger">{{ flash_error }}</div>{% endif %}
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr><th>ID</th><th>Название</th><th>Статус</th><th class="text-end">Действия</th></tr>
+        </thead>
+        <tbody>
+        {% for d in depts %}
+          <tr>
+            <td class="text-muted">{{ d.id }}</td>
+            <td>
+              {% if d.archived_at %}<span class="text-muted text-decoration-line-through">{{ d.name }}</span>
+              {% else %}{{ d.name }}{% endif %}
+            </td>
+            <td>
+              {% if d.archived_at %}
+                <span class="badge bg-secondary">архив</span>
+              {% else %}
+                <span class="badge bg-success">активно</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              {% if not d.archived_at %}
+              <form class="d-inline" method="post" action="/org/departments/{{ d.id }}/rename">
+                <div class="input-group input-group-sm" style="max-width: 360px;">
+                  <input class="form-control" type="text" name="name" value="{{ d.name }}" />
+                  <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-save"></i> Переименовать</button>
+                </div>
+              </form>
+              <form class="d-inline ms-2" method="post" action="/org/departments/{{ d.id }}/archive" onsubmit="return confirm('Архивировать и перенести сотрудников в «Основное»?');">
+                <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-archive"></i> Архив</button>
+              </form>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}

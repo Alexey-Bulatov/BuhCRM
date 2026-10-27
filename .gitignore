@@ -1,0 +1,39 @@
+# Local credentials, environments and operational notes
+login.txt
+.env
+.env.*
+!.env.example
+BASELINE.md
+CLONE.md
+.private/
+local-notes/
+
+# Runtime data and backups
+*.dump
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+data/
+uploads/
+attachments/
+backups/
+*.log
+
+# Python and development tools
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.DS_Store
+*.save
+*_old.py
+*_old1.py

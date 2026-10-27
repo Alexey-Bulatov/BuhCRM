@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}Задачи{% endblock %}
+{% block content %}
+
+{{ ui.breadcrumbs([('Организация', '/org'), ('Задачи', None)]) }}
+
+<ul class="nav nav-tabs" role="tablist">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-current" type="button">Текущие ({{ current|length }})</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-overdue" type="button">Просроченные ({{ overdue|length }})</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-closed" type="button">Завершённые ({{ closed|length }})</button></li>
+</ul>
+
+<div class="tab-content pt-3">
+  <div class="tab-pane fade show active" id="tab-current">
+    {% include "org/_tasks_table.html" with context %}
+  </div>
+  <div class="tab-pane fade" id="tab-overdue">
+    {% include "org/_tasks_table.html" with context %}
+  </div>
+  <div class="tab-pane fade" id="tab-closed">
+    {% include "org/_tasks_table.html" with context %}
+  </div>
+</div>
+{% endblock %}

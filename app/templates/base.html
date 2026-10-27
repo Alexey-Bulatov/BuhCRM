@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{% block title %}BuhCRM2{% endblock %}</title>
+
+  <!-- Bootswatch (Flatly/Darkly) поверх Bootstrap -->
+  <link id="themeCSS" rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/flatly/bootstrap.min.css">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<style>
+  /* Базовая компоновка */
+  .brand { letter-spacing:.3px; }
+  .cursor-pointer { cursor: pointer; }
+  .sidebar { width: 240px; }
+  @media (max-width: 992px) { .sidebar { width: 100%; } }
+  .required::after { content:" *"; color:#d9534f; }
+  .card-ghost { background: rgba(255,255,255,.6); backdrop-filter: blur(6px); }
+  .table-hover tbody tr:hover { transition: background .2s ease; }
+
+  /* Почти во всю ширину по умолчанию */
+  .container-narrow {
+    max-width: min(1900px, 96vw) !important; /* 96% ширины окна, но не более 1900px */
+  }
+
+  /* Тумблер «широкий режим» — ещё шире */
+  body.wide-mode .container-narrow {
+    max-width: min(2400px, 98vw) !important; /* можно увеличить, если хочется вообще без полей */
+  }
+</style>
+
+  {% block head_extra %}{% endblock %}
+</head>
+<body>
+{% if request.app.state.clone_mode %}<div role="status" style="background:#ffe08a;color:#332600;text-align:center;padding:10px;font:700 15px system-ui;">ТЕСТОВЫЙ КЛОН · изменения не затрагивают рабочую CRM</div>{% endif %}
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+  <div class="container-fluid container-narrow">
+    <a class="navbar-brand brand d-flex align-items-center gap-2" href="/admin">
+      <i class="bi bi-grid-3x3-gap-fill"></i> <strong>BuhCRM2</strong>
+      <span class="badge bg-warning text-dark ms-2">{{ request.app.state.env|default('dev')|upper }}</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="topNav">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        {% if user and user.is_system_admin %}
+          <li class="nav-item">
+            <a class="nav-link {% if request.url.path.startswith('/admin') %}active{% endif %}" href="/admin">
+              <i class="bi bi-speedometer2"></i> Админка
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.url.path.startswith('/admin/orgs') %}active{% endif %}" href="/admin/orgs">
+              <i class="bi bi-buildings"></i> Организации
+            </a>
+          </li>
+        {% elif user %}
+          <li class="nav-item">
+            <a class="nav-link {% if request.url.path == '/org' %}active{% endif %}" href="/org">
+              <i class="bi bi-building"></i> Организация
+            </a>
+          </li>
+          {% if user.org_role == 'ORG_ADMIN' %}
+            <li class="nav-item">
+              <a class="nav-link {% if request.url.path.startswith('/org/departments') %}active{% endif %}" href="/org/departments">
+                <i class="bi bi-diagram-3"></i> Подразделения
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {% if request.url.path.startswith('/org/users') %}active{% endif %}" href="/org/users">
+                <i class="bi bi-people"></i> Пользователи
+              </a>
+            </li>
+          {% endif %}
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle {% if request.url.path.startswith('/org/tasks') %}active{% endif %}"
+                 href="#" data-bs-toggle="dropdown" role="button" aria-expanded="false">
+                <i class="bi bi-list-task"></i> Задачи
+              </a>
+              <ul class="dropdown-menu">
+                <li>
+                  <a class="dropdown-item {% if request.url.path == '/org/tasks' %}active{% endif %}" href="/org/tasks">
+                    <i class="bi bi-calendar3-week"></i> Календарь
+                  </a>
+                </li>
+                 <li>
+                  <a class="dropdown-item {% if request.url.path.startswith('/org/tasks/list') %}active{% endif %}"
+                    href="/org/tasks/list">
+                    <i class="bi bi-list-task"></i> Список
+                  </a>
+                </li>
+              </ul>
+            </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.url.path.startswith('/org/clients') %}active{% endif %}" href="/org/clients">
+              <i class="bi bi-buildings"></i> Клиенты
+            </a>
+          </li>
+        {% endif %}
+      </ul>
+      <div class="d-flex align-items-center gap-2">
+        <!-- Тумблер широкого режима (опционально) -->
+        <button id="wideToggle" class="btn btn-outline-light btn-sm" type="button" title="Широкий режим">
+          <i class="bi bi-arrows-fullscreen"></i>
+        </button>
+        <button id="themeToggle" class="btn btn-outline-light btn-sm" type="button" title="Переключить тему">
+          <i class="bi bi-moon-stars"></i>
+        </button>
+        <a class="btn btn-outline-light btn-sm" href="/logout"><i class="bi bi-box-arrow-right"></i> Выход</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid px-3 px-lg-4 my-4">
+  {% if flash_success %}<div class="alert alert-success alert-dismissible fade show" role="alert">
+    {{ flash_success }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>{% endif %}
+  {% if flash_error %}<div class="alert alert-danger alert-dismissible fade show" role="alert">
+    {{ flash_error }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>{% endif %}
+
+  {% block content %}{% endblock %}
+</div>
+
+<!-- Toasts (правый верх) -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 1080">
+  <div id="liveToast" class="toast align-items-center text-bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body">Операция выполнена</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" defer></script>
+<script>
+  // Темы: Flatly <-> Darkly
+  (function() {
+    const key = 'buhcrm2_theme';
+    const toggle = document.getElementById('themeToggle');
+    const link = document.getElementById('themeCSS');
+    const saved = localStorage.getItem(key) || 'flatly';
+    const setTheme = (name) => {
+      link.href = name === 'darkly'
+        ? 'https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/darkly/bootstrap.min.css'
+        : 'https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/flatly/bootstrap.min.css';
+      localStorage.setItem(key, name);
+    };
+    setTheme(saved);
+    toggle?.addEventListener('click', () => {
+      const next = (localStorage.getItem(key) || 'flatly') === 'flatly' ? 'darkly' : 'flatly';
+      setTheme(next);
+    });
+  })();
+
+  // Широкий режим: запоминание в localStorage
+  (function() {
+    const key = 'buhcrm2_wide_mode';
+    const btn = document.getElementById('wideToggle');
+    const body = document.body;
+    const apply = () => {
+      const on = localStorage.getItem(key) === '1';
+      body.classList.toggle('wide-mode', on);
+      if (btn) btn.innerHTML = on
+        ? '<i class="bi bi-fullscreen-exit"></i>'
+        : '<i class="bi bi-arrows-fullscreen"></i>';
+    };
+    apply();
+    btn?.addEventListener('click', () => {
+      const next = localStorage.getItem(key) === '1' ? '0' : '1';
+      localStorage.setItem(key, next);
+      apply();
+    });
+  })();
+
+  // Хелпер для тоста
+  function showToast(text) {
+    const toastEl = document.getElementById('liveToast');
+    toastEl.querySelector('.toast-body').textContent = text;
+    new bootstrap.Toast(toastEl, { delay: 2200 }).show();
+  }
+</script>
+
+{% block body_extra %}{% endblock %}
+</body>
+</html>

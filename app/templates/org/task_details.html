@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}Задача #{{ task.id }}{% endblock %}
+{% block content %}
+
+{{ ui.breadcrumbs([('Задачи', '/org/tasks'), ('#' ~ task.id, None)]) }}
+
+<div class="card mb-3">
+  <div class="card-body">
+    <h5 class="card-title mb-2">{{ task.title }}</h5>
+    <div class="text-muted mb-2">{{ task.status }} · {{ task.priority }}</div>
+    <div class="mb-2"><strong>Срок:</strong> {% if task.due_date %}{{ task.due_date.strftime("%Y-%m-%d %H:%M") }}{% else %}—{% endif %}</div>
+    <div class="mb-2"><strong>Исполнитель:</strong> {{ task.assignee.full_name if task.assignee else '—' }}</div>
+    {% if task.description %}<p class="mb-0">{{ task.description }}</p>{% endif %}
+  </div>
+</div>
+
+<h6 class="mb-2">Комментарии</h6>
+<ul class="list-group mb-3">
+  {% for h in history if h.action == 'comment' %}
+  <li class="list-group-item">
+    <div class="small text-muted mb-1">
+      {{ h.created_at.strftime("%Y-%m-%d %H:%M") }}
+      · {{ h.actor_user_id }}
+    </div>
+    <div>{{ h.payload.text if h.payload else '' }}</div>
+  </li>
+  {% else %}
+  <li class="list-group-item text-muted">Пока нет комментариев</li>
+  {% endfor %}
+</ul>
+
+<form method="post" action="/org/tasks/{{ task.id }}/comment" class="card">
+  <div class="card-body">
+    <div class="mb-2">
+      <textarea class="form-control" name="comment" rows="3" placeholder="Оставить комментарий..." required></textarea>
+    </div>
+    <button class="btn btn-primary">Отправить</button>
+    <a href="/org/tasks" class="btn btn-outline-secondary">К списку</a>
+  </div>
+</form>
+
+{% endblock %}

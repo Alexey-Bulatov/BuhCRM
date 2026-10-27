@@ -1,0 +1,103 @@
+{# app/templates/org/_tasks_table.html #}
+{% set rows = rows if rows is defined else current %}
+
+{# подготовим вспомогательные штуки для ссылок сортировки #}
+{% set base_path = '/org/tasks' %}
+{% set only_q = 'only=' ~ (only or 'mine') %}
+{% set curr_sort = (sort or 'due') %}
+{% set curr_dir = (dir or 'asc') %}
+
+{% macro sort_link(label, key) -%}
+  {%- set new_dir = 'desc' if (curr_sort == key and curr_dir == 'asc') else 'asc' -%}
+  <a class="text-decoration-none"
+     href="{{ base_path }}?{{ only_q }}&sort={{ key }}&dir={{ new_dir }}">
+    {{ label }}
+    {%- if curr_sort == key -%}
+      <i class="bi bi-caret-{{ 'up' if curr_dir == 'asc' else 'down' }}-fill"></i>
+    {%- endif -%}
+  </a>
+{%- endmacro %}
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th style="width:40%">{{ sort_link('Заголовок', 'title') }}</th>
+            <th>{{ sort_link('Статус', 'status') }}</th>
+            <th>{{ sort_link('Срочность', 'priority') }}</th>
+            <th>{{ sort_link('Срок', 'due') }}</th>
+            <th>{{ sort_link('Компания', 'company') }}</th>
+            <th>{{ sort_link('Исполнитель', 'assignee') }}</th>
+            <th class="text-end">{{ sort_link('ID', 'id') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for t in rows %}
+          <tr>
+            <td class="fw-medium">
+              <a href="{{ request.url_for('task_detail', task_id=t.id) }}" class="text-decoration-none">
+                {{ t.title }}
+              </a>
+              {% if t.description %}
+                <div class="small text-muted text-truncate" style="-webkit-line-clamp:1;overflow:hidden;">
+                  {{ t.description }}
+                </div>
+              {% endif %}
+            </td>
+
+            <td>
+              <span class="badge
+                {% if t.status == 'OPEN' %} bg-primary
+                {% elif t.status == 'DONE' %} bg-success
+                {% elif t.status == 'CANCELED' %} bg-secondary
+                {% else %} bg-light text-dark
+                {% endif %}">
+                {{ t.status }}
+              </span>
+            </td>
+
+            <td>
+              <span class="badge
+                {% if t.priority == 'URGENT' %} bg-danger
+                {% elif t.priority == 'MEDIUM' %} bg-warning text-dark
+                {% else %} bg-info text-dark
+                {% endif %}">
+                {{ t.priority }}
+              </span>
+            </td>
+
+            <td class="text-nowrap">
+              {% set d = t.due_date or t.due_at %}
+              {{ d|ru_date if d else '—' }}
+            </td>
+
+            <td class="text-truncate" style="max-width:220px"
+                title="{% if t.company %}{{ t.company.short_name or t.company.full_name or t.company.name }}{% if t.company.inn %} ({{ t.company.inn }}){% endif %}{% else %}—{% endif %}">
+              {% if t.company %}
+                {{ t.company.short_name or t.company.full_name or t.company.name }}{% if t.company.inn %} ({{ t.company.inn }}){% endif %}
+              {% else %}—{% endif %}
+            </td>
+
+            <td class="text-truncate" style="max-width:200px">
+              {{ t.assignee.full_name if t.assignee else '—' }}
+            </td>
+
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-primary"
+                 href="{{ request.url_for('task_detail', task_id=t.id) }}">
+                #{{ t.id }}
+              </a>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="7" class="text-center text-muted py-4">Пусто</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

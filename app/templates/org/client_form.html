@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}Новый клиент{% endblock %}
+{% block content %}
+<div class="py-4">
+  {{ ui.breadcrumbs([('Клиенты','/org/clients'), ('Новый', None)]) }}
+  <div class="card">
+    <div class="card-body">
+      <form method="post" action="/org/clients/new">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">ИНН (10/12)</label>
+            <input name="inn" class="form-control" required maxlength="12">
+            <div class="form-text">Тип (ИП/ЮЛ) определим автоматически.</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Email(ы)</label>
+            <input name="emails" class="form-control" placeholder="несколько — через запятую или с новой строки">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Подразделение</label>
+            <select name="department_id" class="form-select" required>
+              {% for d in depts %}
+                <option value="{{ d.id }}">{{ d.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="mt-3 d-flex gap-2">
+          <button class="btn btn-primary">Создать</button>
+          <a class="btn btn-outline-secondary" href="/org/clients">Отмена</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

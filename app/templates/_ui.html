@@ -1,0 +1,25 @@
+{# app/templates/_ui.html #}
+
+{# Кнопка "Назад": если href не задан — идём history.back() #}
+{% macro back_button(href=None, text="Назад") -%}
+  <a class="btn btn-outline-secondary" href="{{ href or 'javascript:history.back()' }}">
+    <i class="bi bi-arrow-left"></i> {{ text }}
+  </a>
+{%- endmacro %}
+
+{# Хлебные крошки: items — список кортежей (title, href_or_none) #}
+{% macro breadcrumbs(items=[]) -%}
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+      {%- for title, href in items %}
+        {%- if href %}
+          <li class="breadcrumb-item">
+            <a href="{{ href }}">{{ title }}</a>
+          </li>
+        {%- else %}
+          <li class="breadcrumb-item active" aria-current="page">{{ title }}</li>
+        {%- endif %}
+      {%- endfor %}
+    </ol>
+  </nav>
+{%- endmacro %}

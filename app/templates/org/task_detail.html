@@ -1,0 +1,223 @@
+{# app/templates/org/task_detail.html #}
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}Задача #{{ t.id }} — {{ org.short_name }}{% endblock %}
+
+{% block content %}
+<div class="py-4">
+
+  {{ ui.breadcrumbs([('Задачи', '/org/tasks'), ('#' ~ t.id, None)]) }}
+
+  {% if flash_success %}
+    <div class="alert alert-success">{{ flash_success }}</div>
+  {% endif %}
+  {% if flash_error %}
+    <div class="alert alert-danger">{{ flash_error }}</div>
+  {% endif %}
+
+  <div class="row g-4">
+    <div class="col-12 col-lg-7">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title mb-2">{{ t.title }}</h5>
+          <div class="mb-3">
+            <span class="badge bg-{% if t.status == 'OPEN' %}primary{% elif t.status == 'DONE' %}success{% elif t.status == 'CANCELED' %}secondary{% else %}light text-dark{% endif %}">{{ t.status }}</span>
+            <span class="badge bg-{% if t.priority == 'URGENT' %}danger{% elif t.priority == 'MEDIUM' %}warning text-dark{% else %}info text-dark{% endif %}">{{ t.priority }}</span>
+          </div>
+
+          <dl class="row mb-0">
+            <dt class="col-sm-4">Срок</dt>
+            <dd class="col-sm-8">
+              {% if t.due_date %}{{ t.due_date.strftime("%Y-%m-%d %H:%M") }}
+              {% elif t.due_at %}{{ t.due_at.strftime("%Y-%m-%d %H:%M") }}
+              {% else %}—{% endif %}
+            </dd>
+
+            <dt class="col-sm-4">Исполнитель</dt>
+            <dd class="col-sm-8">{{ t.assignee.full_name if t.assignee else '—' }}</dd>
+
+            {% if t.department %}
+              <dt class="col-sm-4">Подразделение</dt>
+              <dd class="col-sm-8">{{ t.department.name }}</dd>
+            {% endif %}
+
+            <dt class="col-sm-4">Создал</dt>
+            <dd class="col-sm-8">{{ t.creator.full_name if t.creator else t.created_by }}</dd>
+
+            {% if t.company %}
+              <dt class="col-sm-4">Клиент</dt>
+              <dd class="col-sm-8">
+                {{ t.company.short_name or t.company.name }}{% if t.company.inn %} ({{ t.company.inn }}){% endif %}
+              </dd>
+            {% endif %}
+          </dl>
+
+          {% if t.description %}
+            <hr>
+            <p class="mb-0">{{ t.description }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        {% if t.status == 'OPEN' %}
+          <form method="post" action="/org/tasks/{{ t.id }}/complete">
+            <button class="btn btn-success">Завершить</button>
+          </form>
+          <form method="post" action="/org/tasks/{{ t.id }}/claim">
+            <button class="btn btn-outline-primary">Перехватить</button>
+          </form>
+        {% endif %}
+
+        {% if can_edit %}
+          <a href="/org/tasks/{{ t.id }}/edit" class="btn btn-outline-secondary">
+            <i class="bi bi-pencil"></i> Редактировать
+          </a>
+        {% endif %}
+
+        <a href="/org/tasks" class="btn btn-outline-secondary">К списку</a>
+      </div>
+
+      {# --- СДВИГ СРОКА --- #}
+      {% set can_reschedule = (user.org_role == 'ORG_ADMIN' or (t.assignee and t.assignee.id == user.id)) %}
+      <div class="card mt-3">
+        <div class="card-header py-2">Сдвинуть срок</div>
+        <div class="card-body">
+          {% set _due = t.due_date or t.due_at %}
+          {% set due_val = _due.strftime("%Y-%m-%dT%H:%M") if _due else "" %}
+
+          <form method="post" action="/org/tasks/{{ t.id }}/reschedule" class="row g-2">
+            <div class="col-12 col-md-6">
+              <label class="form-label">Новая дата и время</label>
+              <input type="datetime-local" name="new_due" value="{{ due_val }}" class="form-control" {% if not can_reschedule %}disabled{% endif %}>
+              <div class="form-text">Оставь пустым, чтобы убрать срок вовсе.</div>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label">Комментарий (необязательно)</label>
+              <input type="text" name="reason" class="form-control" placeholder="Причина сдвига срока" {% if not can_reschedule %}disabled{% endif %}>
+            </div>
+            <div class="col-12 text-end">
+              <button type="submit" class="btn btn-outline-primary" {% if not can_reschedule %}disabled{% endif %}>Сохранить</button>
+            </div>
+          </form>
+
+          {% if not can_reschedule %}
+            <div class="text-muted small mt-2">Срок может менять администратор организации или исполнитель задачи.</div>
+          {% endif %}
+        </div>
+      </div>
+      {# --- /СДВИГ СРОКА --- #}
+    </div>
+
+    <div class="col-12 col-lg-5">
+      <div class="card mb-3">
+        <div class="card-header">Комментарии</div>
+        <div class="card-body">
+          <form method="post" action="/org/tasks/{{ t.id }}/comment">
+            <div class="mb-2">
+              <textarea name="comment" class="form-control" rows="3" placeholder="Оставить комментарий..." required></textarea>
+            </div>
+            <div class="d-grid d-sm-flex gap-2">
+              <button class="btn btn-primary">Отправить</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {% if t.recur_freq != 'NONE' %}
+        <div class="alert alert-info d-flex justify-content-between align-items-center">
+          <div>
+            <strong>Повторение:</strong>
+            {% if t.recur_freq == 'DAILY' %}ежедневно{% elif t.recur_freq == 'WEEKLY' %}еженедельно{% elif t.recur_freq == 'MONTHLY' %}ежемесячно{% endif %}
+            {% if t.recur_interval and t.recur_interval > 1 %} каждые {{ t.recur_interval }}{% endif %}
+            {% if t.recur_until %} до {{ t.recur_until }}{% endif %}
+          </div>
+          <form method="post" action="/org/tasks/{{ t.id }}/recur/disable" class="mb-0">
+            <button class="btn btn-sm btn-outline-danger" type="submit">
+              <i class="bi bi-x-circle"></i> Выключить повторение
+            </button>
+          </form>
+        </div>
+      {% endif %}
+
+      <div class="card">
+        <div class="card-header">История</div>
+        <div class="list-group list-group-flush">
+          {% for h in history %}
+            <div class="list-group-item">
+              <div class="small text-muted mb-1">
+                {{ h.created_at.strftime("%Y-%m-%d %H:%M") if h.created_at else '' }} · {{ h.action|lower }}
+              </div>
+
+              {% set act = h.action|lower %}
+              {% if act == 'comment' %}
+                <div>{{ h.payload.text if h.payload else '' }}</div>
+
+              {% elif act == 'reschedule' %}
+                <div class="small">
+                  {% set from = h.payload.from if h.payload and 'from' in h.payload else None %}
+                  {% set to = h.payload.to if h.payload and 'to' in h.payload else None %}
+                  {% set reason = h.payload.reason if h.payload and 'reason' in h.payload else None %}
+                  <div>Срок:
+                    <span class="text-muted">{{ from if from else '—' }}</span>
+                    → <span class="fw-semibold">{{ to if to else '—' }}</span>
+                  </div>
+                  {% if reason %}
+                    <div class="text-muted">Причина: {{ reason }}</div>
+                  {% endif %}
+                  {% if h.payload and h.payload.priority_mode %}
+                    <div class="text-muted">Режим приоритета: {{ h.payload.priority_mode }}{% if h.payload.priority %} ({{ h.payload.priority }}){% endif %}</div>
+                  {% endif %}
+                </div>
+
+              {% elif act == 'update' %}
+                {% if h.payload and h.payload.note %}
+                  <div class="text-muted small">Изменений не было</div>
+                {% else %}
+                  {% set labels = {
+                    'title': 'Название',
+                    'description': 'Описание',
+                    'due_date': 'Срок',
+                    'priority_mode': 'Режим приоритета',
+                    'priority': 'Приоритет',
+                    'recur_freq': 'Повторение',
+                    'recur_interval': 'Интервал',
+                    'recur_until': 'Повторять до',
+                    'department_id': 'Подразделение',
+                    'assignee_id': 'Исполнитель',
+                    'company_id': 'Клиент'
+                  } %}
+                  <div class="small">
+                    {% for k, v in h.payload.items() %}
+                      <div class="mb-1">
+                        <span class="text-muted">{{ labels.get(k, k) }}:</span>
+                        <span class="text-muted">{{ v.from if v and 'from' in v else '—' }}</span>
+                        → <span class="fw-semibold">{{ v.to if v and 'to' in v else '—' }}</span>
+                      </div>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+
+              {% elif act == 'recur_disable' %}
+                {% set from_freq = h.payload.from.recur_freq if h.payload and h.payload.from else None %}
+                {% set from_int  = h.payload.from.recur_interval if h.payload and h.payload.from else None %}
+                {% set from_until= h.payload.from.recur_until if h.payload and h.payload.from else None %}
+                <div class="small">
+                  Повторение выключено
+                  {% if from_freq %} (было: {{ from_freq }}{% if from_int and from_int > 1 %}, каждые {{ from_int }}{% endif %}{% if from_until %}, до {{ from_until }}{% endif %}){% endif %}
+                </div>
+
+              {% else %}
+                <div class="text-muted small">Событие: {{ act }}</div>
+              {% endif %}
+            </div>
+          {% else %}
+            <div class="list-group-item text-muted">Пока пусто</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

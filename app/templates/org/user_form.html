@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}{{ 'Новый пользователь' if mode=='new' else 'Редактирование' }} — {{ org.short_name }}{% endblock %}
+
+{% block content %}
+  {{ ui.breadcrumbs([('Организация', '/org'), ('Пользователи', '/org/users'), (('Новый' if mode=='new' else 'Редактирование'), None)]) }}
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2 align-items-center">
+      {{ ui.back_button(back_url) }}
+      <h3 class="mb-0"><i class="bi bi-person"></i> {{ 'Новый пользователь' if mode=='new' else 'Редактирование пользователя' }}</h3>
+    </div>
+  </div>
+
+  {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+
+  {% set form_action = '/org/users/new' if mode=='new' else ('/org/users/' ~ item.id ~ '/update') %}
+  {% set dept_name = 'departments' if mode=='new' else 'department_ids' %}
+  {% set selected_depts = user_dept_ids|default([]) %}
+
+  <form method="post" action="{{ form_action }}" class="row g-3" autocomplete="off">
+    <div class="col-md-6">
+      <label class="form-label required">ФИО</label>
+      <input class="form-control" name="full_name" required value="{{ '' if mode=='new' else item.full_name }}" />
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Короткое имя</label>
+      <input class="form-control" name="short_name" value="{{ '' if mode=='new' else (item.short_name or '') }}" />
+    </div>
+
+    {% if mode == 'new' %}
+      <div class="col-md-6">
+        <label class="form-label required">Email</label>
+        <input class="form-control" type="email" name="email" required />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label required">Пароль</label>
+        <input class="form-control" type="password" name="password" required />
+        <div class="form-text">Мин. 10 символов, буквы (Aa), цифры, спецсимвол.</div>
+      </div>
+    {% endif %}
+
+    <div class="col-md-4">
+      <label class="form-label required">Роль</label>
+      <select class="form-select" name="role" required>
+        <option value="ORG_USER" {{ '' if mode=='new' else ('selected' if item.org_role=='ORG_USER' else '') }}>Пользователь</option>
+        <option value="ORG_ADMIN" {{ '' if mode=='new' else ('selected' if item.org_role=='ORG_ADMIN' else '') }}>Админ</option>
+      </select>
+    </div>
+
+    {% if mode == 'edit' %}
+      <div class="col-md-2 d-flex align-items-end">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="active" name="active" {{ 'checked' if item.is_active else '' }}>
+          <label class="form-check-label" for="active">Активен</label>
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="col-12">
+      <label class="form-label required">Подразделения</label>
+      <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-2">
+        {% for d in depts %}
+          <div class="col">
+            <div class="form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="dept_{{ d.id }}"
+                name="{{ dept_name }}"
+                value="{{ d.id }}"
+                {% if mode=='edit' and (d.id in selected_depts) %}checked{% endif %}>
+              <label class="form-check-label" for="dept_{{ d.id }}">{{ d.name }}</label>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="form-text">Если не выбрать ни одного — автоматически добавим «Основное».</div>
+    </div>
+
+    <div class="col-12 d-flex gap-2">
+      <button class="btn btn-primary" type="submit"><i class="bi bi-check2-circle"></i> Сохранить</button>
+      <a class="btn btn-outline-secondary" href="{{ back_url }}"><i class="bi bi-arrow-left"></i> Назад</a>
+    </div>
+  </form>
+
+  {% if mode == 'edit' %}
+    <hr class="my-4">
+    <h5><i class="bi bi-key"></i> Смена пароля</h5>
+    <form method="post" action="/org/users/{{ item.id }}/set-password" class="row g-2" autocomplete="off">
+      <div class="col-md-6">
+        <input class="form-control" type="password" name="password" placeholder="Новый пароль" required>
+        <div class="form-text">Мин. 10 символов, буквы (Aa), цифры, спецсимвол.</div>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-outline-primary" type="submit"><i class="bi bi-save"></i> Обновить пароль</button>
+      </div>
+    </form>
+  {% endif %}
+{% endblock %}

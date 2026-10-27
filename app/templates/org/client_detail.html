@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}Клиент — {{ item.short_name }}{% endblock %}
+{% block content %}
+<div class="py-4">
+  {{ ui.breadcrumbs([('Клиенты','/org/clients'), (item.short_name, None)]) }}
+  {% if flash_success %}<div class="alert alert-success">{{ flash_success }}</div>{% endif %}
+  {% if flash_error %}<div class="alert alert-danger">{{ flash_error }}</div>{% endif %}
+
+  <div class="row g-4">
+    <div class="col-12 col-lg-7">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title mb-2">{{ item.short_name }}</h5>
+          <div class="text-muted mb-3">{{ item.full_name or '—' }}</div>
+          <dl class="row mb-0">
+            <dt class="col-sm-4">Тип</dt><dd class="col-sm-8">{{ 'Юрлицо' if item.kind=='LEGAL' else 'ИП' }}</dd>
+            <dt class="col-sm-4">ИНН</dt><dd class="col-sm-8">{{ item.inn }}</dd>
+            {% if item.kpp %}<dt class="col-sm-4">КПП</dt><dd class="col-sm-8">{{ item.kpp }}</dd>{% endif %}
+            {% if item.ogrn %}<dt class="col-sm-4">ОГРН/ОГРНИП</dt><dd class="col-sm-8">{{ item.ogrn }}</dd>{% endif %}
+            {% if item.ceo_name %}<dt class="col-sm-4">Руководитель</dt><dd class="col-sm-8">{{ item.ceo_name }}</dd>{% endif %}
+            {% if item.department %}<dt class="col-sm-4">Подразделение</dt><dd class="col-sm-8">{{ item.department.name }}</dd>{% endif %}
+          </dl>
+        </div>
+      </div>
+
+      <form class="mt-3" method="post" action="/org/clients/{{ item.id }}/new-task">
+        <button class="btn btn-primary"><i class="bi bi-plus-lg"></i> Создать задачу по этому клиенту</button>
+      </form>
+    </div>
+
+    <div class="col-12 col-lg-5">
+      <div class="card">
+        <div class="card-header">Email-адреса</div>
+        <div class="list-group list-group-flush">
+          {% for e in item.emails %}
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+              <span>{{ e.email }}</span>
+              <form method="post" action="/org/clients/{{ item.id }}/emails/{{ e.id }}/delete">
+                <button class="btn btn-sm btn-outline-danger">Удалить</button>
+              </form>
+            </div>
+          {% else %}
+            <div class="list-group-item text-muted">Пока нет адресов</div>
+          {% endfor %}
+        </div>
+        <div class="card-body">
+          <form method="post" action="/org/clients/{{ item.id }}/emails/add" class="d-flex gap-2">
+            <input class="form-control" name="email" type="email" placeholder="example@domain.ru" required>
+            <button class="btn btn-outline-primary">Добавить</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

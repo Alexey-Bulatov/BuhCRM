@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}Клиенты{% endblock %}
+
+{% block content %}
+<div class="py-4">
+  {{ ui.breadcrumbs([('Организация','/org'), ('Клиенты', None)]) }}
+  {% if flash_success %}<div class="alert alert-success">{{ flash_success }}</div>{% endif %}
+  {% if flash_error %}<div class="alert alert-danger">{{ flash_error }}</div>{% endif %}
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Клиенты</h1>
+    <a href="/org/clients/new" class="btn btn-primary">Добавить</a>
+  </div>
+
+  <!-- Поисковая панель -->
+  <form class="row g-2 align-items-end mb-3" method="get" action="/org/clients">
+    <div class="col-12 col-md-6 position-relative">
+      <label for="client-search" class="form-label mb-1">Поиск клиента</label>
+      <input id="client-search" name="q" type="text" class="form-control" placeholder="Название, ИНН, email..."
+             value="{{ q }}" autocomplete="off">
+      <div id="client-suggest" class="list-group position-absolute w-100"
+           style="z-index: 1000; max-height: 320px; overflow: auto; display: none;"></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <label for="only" class="form-label mb-1">Фильтр</label>
+      <select id="only" name="only" class="form-select">
+        <option value="" {{ '' == only and 'selected' or '' }}>Все</option>
+        <option value="mine" {{ 'mine' == only and 'selected' or '' }}>Мои подразделения</option>
+      </select>
+    </div>
+    <div class="col-6 col-md-3 d-flex gap-2">
+      <button type="submit" class="btn btn-outline-primary w-100">Найти</button>
+      <a class="btn btn-outline-secondary" href="/org/clients">Сброс</a>
+    </div>
+    <!-- Сохраняем page/per_page при сабмите руками пользователем -->
+    {% if page %}<input type="hidden" name="page" value="{{ page }}">{% endif %}
+    {% if per_page %}<input type="hidden" name="per_page" value="{{ per_page }}">{% endif %}
+  </form>
+
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr><th>Краткое</th><th>ИНН</th><th>Тип</th><th>Подразделение</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for c in items %}
+          <tr>
+            <td><a class="text-decoration-none" href="/org/clients/{{ c.id }}">{{ c.short_name or c.full_name or ('Компания #' ~ c.id) }}</a></td>
+            <td>{{ c.inn }}</td>
+            <td>{{ 'Юрлицо' if c.kind=='LEGAL' else 'ИП' }}</td>
+            <td>{{ c.department.name if c.department else '—' }}</td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-primary" href="/org/clients/{{ c.id }}">Открыть</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-center text-muted py-4">Пока пусто</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Пагинация -->
+  {% if pages_total and pages_total > 1 %}
+  <nav class="mt-3">
+    <ul class="pagination pagination-sm mb-0">
+      {% set prev_disabled = (page <= 1) %}
+      {% set next_disabled = (page >= pages_total) %}
+      <li class="page-item {{ prev_disabled and 'disabled' or '' }}">
+        <a class="page-link"
+           href="/org/clients?{{ 'q=' ~ (q|urlencode) if q }}{{ q and '&' or '' }}{{ 'only=' ~ only if only }}{{ (q or only) and '&' or '' }}page={{ page - 1 }}&per_page={{ per_page }}">Назад</a>
+      </li>
+      {# показываем небольшое окно страниц вокруг текущей #}
+      {% set start = [1, page - 2]|max %}
+      {% set end = [pages_total, page + 2]|min %}
+      {% if start > 1 %}
+        <li class="page-item"><a class="page-link" href="/org/clients?{{ 'q=' ~ (q|urlencode) if q }}{{ q and '&' or '' }}{{ 'only=' ~ only if only }}{{ (q or only) and '&' or '' }}page=1&per_page={{ per_page }}">1</a></li>
+        {% if start > 2 %}<li class="page-item disabled"><span class="page-link">…</span></li>{% endif %}
+      {% endif %}
+      {% for p in range(start, end + 1) %}
+        <li class="page-item {{ p == page and 'active' or '' }}">
+          <a class="page-link" href="/org/clients?{{ 'q=' ~ (q|urlencode) if q }}{{ q and '&' or '' }}{{ 'only=' ~ only if only }}{{ (q or only) and '&' or '' }}page={{ p }}&per_page={{ per_page }}">{{ p }}</a>
+        </li>
+      {% endfor %}
+      {% if end < pages_total %}
+        {% if end < pages_total - 1 %}<li class="page-item disabled"><span class="page-link">…</span></li>{% endif %}
+        <li class="page-item"><a class="page-link" href="/org/clients?{{ 'q=' ~ (q|urlencode) if q }}{{ q and '&' or '' }}{{ 'only=' ~ only if only }}{{ (q or only) and '&' or '' }}page={{ pages_total }}&per_page={{ per_page }}">{{ pages_total }}</a></li>
+      {% endif %}
+      <li class="page-item {{ next_disabled and 'disabled' or '' }}">
+        <a class="page-link"
+           href="/org/clients?{{ 'q=' ~ (q|urlencode) if q }}{{ q and '&' or '' }}{{ 'only=' ~ only if only }}{{ (q or only) and '&' or '' }}page={{ page + 1 }}&per_page={{ per_page }}">Вперед</a>
+      </li>
+    </ul>
+  </nav>
+  {% endif %}
+</div>
+
+<!-- Live-подсказки на /org/api/companies/search -->
+<script>
+(function() {
+  const input = document.getElementById('client-search');
+  const box = document.getElementById('client-suggest');
+  const apiURL = '/org/api/companies/search';
+
+  let timer = null;
+  let activeIndex = -1;
+
+  function debounce(fn, ms) {
+    return function(...args) {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn.apply(this, args), ms);
+    }
+  }
+
+  function hideBox() {
+    box.style.display = 'none';
+    box.innerHTML = '';
+    activeIndex = -1;
+  }
+
+  function showBox() { box.style.display = 'block'; }
+
+  function escapeHtml(s) {
+    return (s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&gt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  }
+
+  function render(items) {
+    if (!items.length) { hideBox(); return; }
+    box.innerHTML = items.map((it, idx) => `
+      <a href="/org/clients/${it.id}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" data-index="${idx}">
+        <span>
+          <div class="fw-semibold">${escapeHtml(it.label)}</div>
+          ${it.email ? `<div class="small text-muted">${escapeHtml(it.email)}</div>` : (it.inn ? `<div class="small text-muted">ИНН ${escapeHtml(it.inn)}</div>` : '')}
+        </span>
+        <i class="bi bi-arrow-return-right"></i>
+      </a>
+    `).join('');
+    showBox();
+  }
+
+  async function searchSuggest(q) {
+    const url = new URL(apiURL, window.location.origin);
+    url.searchParams.set('term', q);
+    url.searchParams.set('limit', '10');
+    const r = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
+    if (!r.ok) throw new Error('Search failed');
+    return await r.json();
+  }
+
+  const doSearch = debounce(async function() {
+    const q = input.value.trim();
+    if (!q) { hideBox(); return; }
+    try {
+      const data = await searchSuggest(q);
+      render(data);
+    } catch(e) {
+      console.error(e);
+      hideBox();
+    }
+  }, 180);
+
+  input.addEventListener('input', doSearch);
+  input.addEventListener('focus', () => { if (box.innerHTML) showBox(); });
+
+  box.addEventListener('click', (e) => {
+    const link = e.target.closest('a.list-group-item');
+    if (link) hideBox(); // переход по href
+  });
+
+  input.addEventListener('keydown', (e) => {
+    const items = Array.from(box.querySelectorAll('a.list-group-item'));
+    if (!items.length || box.style.display === 'none') return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeIndex = (activeIndex + 1) % items.length;
+      setActive(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIndex = (activeIndex - 1 + items.length) % items.length;
+      setActive(items);
+    } else if (e.key === 'Enter') {
+      if (activeIndex >= 0 && items[activeIndex]) {
+        e.preventDefault();
+        window.location.href = items[activeIndex].getAttribute('href');
+      }
+    } else if (e.key === 'Escape') {
+      hideBox();
+    }
+  });
+
+  function setActive(items) {
+    items.forEach((el, i) => {
+      if (i === activeIndex) {
+        el.classList.add('active');
+        el.scrollIntoView({ block: 'nearest' });
+      } else el.classList.remove('active');
+    });
+  }
+
+  // закрытие по клику вне
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#client-suggest') && !e.target.closest('#client-search')) {
+      hideBox();
+    }
+  });
+})();
+</script>
+{% endblock %}

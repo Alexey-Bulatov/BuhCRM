@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}Дашборд — {{ org.short_name }}{% endblock %}
+
+{% block content %}
+<div class="py-4">
+  {{ ui.breadcrumbs([('Организация', '/org'), ('Дашборд', None)]) }}
+
+  <div class="row g-3">
+    <!-- KPI -->
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small">Открытые</div>
+          <div class="h3 mb-0">{{ kpi.total_open }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small">Просроченные</div>
+          <div class="h3 mb-0 text-danger">{{ kpi.overdue }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small">На сегодня</div>
+          <div class="h3 mb-0">{{ kpi.due_today }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small">Закрыто за 7 дней</div>
+          <div class="h3 mb-0 text-success">{{ kpi.closed_7d }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Линия закрытий / Кольцо статусов -->
+    <div class="col-md-8">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white fw-semibold">Закрытия по дням (14 дней)</div>
+        <div class="card-body"><canvas id="chartTrend"></canvas></div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white fw-semibold">Статусы задач</div>
+        <div class="card-body"><canvas id="chartStatus"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Нагрузка: отделы / пользователи -->
+    <div class="col-md-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white fw-semibold">Открытые по отделам</div>
+        <div class="card-body"><canvas id="chartDepts"></canvas></div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white fw-semibold">Открытые по пользователям</div>
+        <div class="card-body"><canvas id="chartUsers"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Приоритеты открытых -->
+    <div class="col-md-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white fw-semibold">Приоритеты (открытые)</div>
+        <div class="card-body"><canvas id="chartPriority"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Последняя активность -->
+    <div class="col-md-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white fw-semibold">Последняя активность</div>
+        <div class="card-body">
+          {% if history %}
+            <ul class="list-group list-group-flush small">
+              {% for h in history %}
+                <li class="list-group-item">
+                  <div class="d-flex justify-content-between">
+                    <div>
+                      <span class="badge bg-light text-dark me-2">{{ h.action }}</span>
+                      Задача #{{ h.task_id }}
+                      {% if h.payload and h.payload.text %}
+                        — {{ h.payload.text }}
+                      {% endif %}
+                    </div>
+                    <span class="text-muted">{{ h.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                  </div>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="text-muted">Активности пока нет</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+const trendLabels = {{ trend_labels|tojson }};
+const trendValues = {{ trend_values|tojson }};
+
+const statusMap = {{ by_status|tojson }};
+const statusLabels = Object.keys(statusMap);
+const statusValues = Object.values(statusMap);
+
+const deptsLabels = {{ depts_labels|tojson }};
+const deptsValues  = {{ depts_values|tojson }};
+
+const usersLabels = {{ users_labels|tojson }};
+const usersValues  = {{ users_values|tojson }};
+
+const prMap = {{ by_priority_open|tojson }};
+const prLabels = Object.keys(prMap);
+const prValues = Object.values(prMap);
+
+new Chart(document.getElementById('chartTrend'), {
+  type: 'line',
+  data: { labels: trendLabels, datasets: [{ label: 'Закрыто', data: trendValues }] },
+  options: { responsive: true, maintainAspectRatio: false }
+});
+
+new Chart(document.getElementById('chartStatus'), {
+  type: 'doughnut',
+  data: { labels: statusLabels, datasets: [{ data: statusValues }] },
+  options: { responsive: true, maintainAspectRatio: false }
+});
+
+new Chart(document.getElementById('chartDepts'), {
+  type: 'bar',
+  data: { labels: deptsLabels, datasets: [{ label: 'Открытые', data: deptsValues }] },
+  options: { responsive: true, maintainAspectRatio: false }
+});
+
+new Chart(document.getElementById('chartUsers'), {
+  type: 'bar',
+  data: { labels: usersLabels, datasets: [{ label: 'Открытые', data: usersValues }] },
+  options: { responsive: true, maintainAspectRatio: false }
+});
+
+new Chart(document.getElementById('chartPriority'), {
+  type: 'bar',
+  data: { labels: prLabels, datasets: [{ label: 'Открытые', data: prValues }] },
+  options: { responsive: true, maintainAspectRatio: false }
+});
+</script>
+{% endblock %}

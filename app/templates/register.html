@@ -1,0 +1,61 @@
+{# app/templates/register.html #}
+{% extends "base.html" %}
+{% block title %}Регистрация организации{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 720px;">
+  <h1 class="h3 mb-3">Регистрация организации</h1>
+
+  {% if errors and errors|length %}
+    <div class="alert alert-danger">
+      <ul class="mb-0">
+        {% for e in errors %}
+          <li>{{ e }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <form method="post" action="/register" novalidate>
+    <div class="mb-3">
+      <label class="form-label">ИНН</label>
+      <input type="text" name="inn" class="form-control" required maxlength="12"
+             value="{{ form.inn or '' }}" placeholder="10 или 12 цифр">
+      <div class="form-text">Мы подтянем данные из Dadata автоматически.</div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Email (логин)</label>
+      <input type="email" name="email" class="form-control" required value="{{ form.email or '' }}">
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">ФИО</label>
+      <input type="text" name="full_name" class="form-control" required value="{{ form.full_name or '' }}">
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Должность</label>
+      <input type="text" name="position" class="form-control" value="{{ form.position or '' }}">
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Пароль</label>
+      <input type="password" name="password" class="form-control" required>
+      <div class="form-text">Мин. 10 символов, буквы обоих регистров, цифры и спецсимвол.</div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Повтор пароля</label>
+      <input type="password" name="password2" class="form-control" required>
+    </div>
+
+    {# капчу добавим позже #}
+
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary">Зарегистрировать</button>
+      <a href="/login" class="btn btn-outline-secondary">У меня уже есть аккаунт</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

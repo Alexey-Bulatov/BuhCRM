@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui %}
+{% block title %}Новая организация — BuhCRM2{% endblock %}
+{% block content %}
+  {{ ui.breadcrumbs([('Админка', '/admin'), ('Организации', '/admin/orgs'), ('Создать', None)]) }}
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2">
+      {{ ui.back_button(back_url) }}
+      <h3 class="mb-0"><i class="bi bi-plus-circle"></i> Создать организацию</h3>
+    </div>
+  </div>
+
+  {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+
+  <form method="post" action="/admin/orgs/new" autocomplete="off" class="row g-3">
+    <div class="col-md-6">
+      <label class="form-label required">ИНН</label>
+      <input class="form-control" type="text" name="inn" required />
+      <div class="form-text">Берём реквизиты из Dadata (если ликвидирована — откажем).</div>
+    </div>
+
+    <div class="col-12"><hr></div>
+
+    <div class="col-md-6">
+      <label class="form-label required">ФИО админа организации</label>
+      <input class="form-control" type="text" name="admin_full_name" required />
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Короткое имя (напр. «Иванов И.И.»)</label>
+      <input class="form-control" type="text" name="admin_short_name" />
+    </div>
+    <div class="col-md-6">
+      <label class="form-label required">Email админа</label>
+      <input class="form-control" type="email" name="admin_email" required />
+    </div>
+    <div class="col-md-6">
+      <label class="form-label required">Пароль админа</label>
+      <input class="form-control" type="password" name="admin_password" required />
+      <div class="form-text">Мин. 10 символов, буквы (Aa), цифры, спецсимвол.</div>
+    </div>
+
+    <div class="col-12 d-flex gap-2">
+      <button class="btn btn-primary" type="submit"><i class="bi bi-check2-circle"></i> Создать</button>
+      <a class="btn btn-outline-secondary" href="{{ back_url }}"><i class="bi bi-arrow-left"></i> Назад</a>
+    </div>
+  </form>
+{% endblock %}
